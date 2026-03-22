@@ -121,3 +121,77 @@ describe("Version API", () => {
     expect(version.nodeVersion).toMatch(/^v\d+\.\d+\.\d+/);
   });
 });
+
+describe("Stats API", () => {
+  it("GET /api/stats returns correct status and format", async () => {
+    const res = await app.request("/api/stats");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+
+    const stats = await res.json();
+
+    // Check structure and basic types
+    expect(stats).toMatchObject({
+      requests: { total: expect.any(Number) },
+      uptime: expect.any(Number),
+      memory: {
+        rss: expect.any(Number),
+        heapTotal: expect.any(Number),
+        heapUsed: expect.any(Number),
+        external: expect.any(Number)
+      }
+    });
+
+    // Basic validations
+    expect(stats.requests.total).toBeGreaterThan(0);
+    expect(stats.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(stats.uptime)).toBe(true);
+  });
+
+  it("GET /api/stats request counter increases with each call", async () => {
+    const res1 = await app.request("/api/stats");
+    const stats1 = await res1.json();
+
+    const res2 = await app.request("/api/stats");
+    const stats2 = await res2.json();
+
+    expect(stats2.requests.total).toBeGreaterThan(stats1.requests.total);
+  });
+
+  it("GET /api/stats uptime increases over time", async () => {
+    const res1 = await app.request("/api/stats");
+    const stats1 = await res1.json();
+
+    // Small delay to ensure uptime difference
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const res2 = await app.request("/api/stats");
+    const stats2 = await res2.json();
+
+    expect(stats2.uptime).toBeGreaterThanOrEqual(stats1.uptime);
+  });
+
+  it("GET /api/stats memory usage values are reasonable", async () => {
+    const res = await app.request("/api/stats");
+    const stats = await res.json();
+
+    // Basic sanity checks
+    expect(stats.memory.heapUsed).toBeLessThanOrEqual(stats.memory.heapTotal);
+    expect(stats.memory.rss).toBeGreaterThan(stats.memory.heapTotal);
+  });
+
+  it("GET /api/stats tracks requests from other endpoints", async () => {
+    const res1 = await app.request("/api/stats");
+    const stats1 = await res1.json();
+
+    // Make requests to other endpoints
+    await app.request("/api/health");
+    await app.request("/api/version");
+
+    const res2 = await app.request("/api/stats");
+    const stats2 = await res2.json();
+
+    // Should have increased by at least 3 (health + version + stats)
+    expect(stats2.requests.total - stats1.requests.total).toBeGreaterThanOrEqual(3);
+  });
+});
