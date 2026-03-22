@@ -156,7 +156,6 @@ describe("Stats API", () => {
     const stats2 = await res2.json();
 
     expect(stats2.requests.total).toBeGreaterThan(stats1.requests.total);
-    expect(stats2.requests.total - stats1.requests.total).toBeGreaterThanOrEqual(1);
   });
 
   it("GET /api/stats uptime increases over time", async () => {
