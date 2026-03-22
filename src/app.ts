@@ -9,6 +9,15 @@ import {
 
 const app = new Hono();
 
+// Track server start time for uptime calculation
+const serverStartTime = Date.now();
+
+// Health check endpoint
+app.get("/api/health", (c) => {
+  const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
+  return c.json({ status: "ok", uptime });
+});
+
 // List all todos
 app.get("/api/todos", (c) => {
   return c.json(getAllTodos());
