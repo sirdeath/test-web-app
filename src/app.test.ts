@@ -97,6 +97,157 @@ describe("TODO API", () => {
   });
 });
 
+describe("TODO createdAt functionality", () => {
+  it("createdAt is close to current time when creating a todo", async () => {
+    const beforeCreation = new Date();
+
+    const res = await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Time test" }),
+    });
+
+    const afterCreation = new Date();
+    const todo = await res.json();
+    const todoCreatedAt = new Date(todo.createdAt);
+
+    expect(todoCreatedAt.getTime()).toBeGreaterThanOrEqual(beforeCreation.getTime());
+    expect(todoCreatedAt.getTime()).toBeLessThanOrEqual(afterCreation.getTime());
+  });
+
+  it("multiple todos have createdAt in chronological order", async () => {
+    const res1 = await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "First todo" }),
+    });
+
+    // Small delay to ensure different timestamps
+    await new Promise(resolve => setTimeout(resolve, 1));
+
+    const res2 = await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Second todo" }),
+    });
+
+    const todo1 = await res1.json();
+    const todo2 = await res2.json();
+
+    expect(new Date(todo1.createdAt).getTime()).toBeLessThanOrEqual(new Date(todo2.createdAt).getTime());
+  });
+
+  it("createdAt format is valid ISO 8601 string", async () => {
+    const res = await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "ISO test" }),
+    });
+
+    const todo = await res.json();
+
+    // Check ISO 8601 format
+    expect(todo.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+
+    // Validate it's a parseable date
+    const parsed = new Date(todo.createdAt);
+    expect(parsed.toISOString()).toBe(todo.createdAt);
+    expect(isNaN(parsed.getTime())).toBe(false);
+  });
+
+  it("createdAt remains unchanged when updating todo properties", async () => {
+    const createRes = await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Original title" }),
+    });
+    const originalTodo = await createRes.json();
+
+    // Update title
+    const updateTitleRes = await app.request("/api/todos/1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "Updated title" }),
+    });
+    const updatedTodo = await updateTitleRes.json();
+
+    expect(updatedTodo.createdAt).toBe(originalTodo.createdAt);
+    expect(updatedTodo.title).toBe("Updated title");
+
+    // Update completed status
+    const updateCompletedRes = await app.request("/api/todos/1", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: true }),
+    });
+    const finalTodo = await updateCompletedRes.json();
+
+    expect(finalTodo.createdAt).toBe(originalTodo.createdAt);
+    expect(finalTodo.completed).toBe(true);
+  });
+
+  it("each todo gets a createdAt timestamp (may be same for rapid creation)", async () => {
+    const todos = [];
+
+    // Create multiple todos with small delays
+    for (let i = 0; i < 3; i++) {
+      const res = await app.request("/api/todos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: `Todo ${i + 1}` }),
+      });
+      todos.push(await res.json());
+
+      // Small delay to potentially get different timestamps
+      if (i < 2) {
+        await new Promise(resolve => setTimeout(resolve, 2));
+      }
+    }
+
+    // Extract all createdAt values
+    const createdAtValues = todos.map(todo => todo.createdAt);
+
+    // Check that all values are valid timestamps
+    createdAtValues.forEach(createdAt => {
+      expect(typeof createdAt).toBe("string");
+      expect(createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      expect(isNaN(new Date(createdAt).getTime())).toBe(false);
+    });
+
+    // Check that timestamps are in non-decreasing order (allowing for same timestamps)
+    for (let i = 1; i < createdAtValues.length; i++) {
+      const prev = new Date(createdAtValues[i - 1]).getTime();
+      const curr = new Date(createdAtValues[i]).getTime();
+      expect(curr).toBeGreaterThanOrEqual(prev);
+    }
+  });
+
+  it("createdAt is included in todo list response", async () => {
+    await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "List test 1" }),
+    });
+
+    await app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: "List test 2" }),
+    });
+
+    const listRes = await app.request("/api/todos");
+    const todoList = await listRes.json();
+
+    expect(todoList).toHaveLength(2);
+
+    todoList.forEach(todo => {
+      expect(todo).toHaveProperty("createdAt");
+      expect(typeof todo.createdAt).toBe("string");
+      expect(todo.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    });
+  });
+});
+
 describe("Health API", () => {
   it("GET /api/health returns correct status and format", async () => {
     const res = await app.request("/api/health");
