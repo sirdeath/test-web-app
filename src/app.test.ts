@@ -79,3 +79,25 @@ describe("TODO API", () => {
     expect(res.status).toBe(400);
   });
 });
+
+describe("Health API", () => {
+  it("GET /api/health returns correct status and format", async () => {
+    const res = await app.request("/api/health");
+    expect(res.status).toBe(200);
+
+    const health = await res.json();
+    expect(health.status).toBe("ok");
+    expect(health.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(health.uptime)).toBe(true);
+  });
+
+  it("GET /api/health uptime increases over time", async () => {
+    const res1 = await app.request("/api/health");
+    const health1 = await res1.json();
+
+    const res2 = await app.request("/api/health");
+    const health2 = await res2.json();
+
+    expect(health2.uptime).toBeGreaterThanOrEqual(health1.uptime);
+  });
+});
