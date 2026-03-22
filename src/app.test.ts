@@ -121,3 +121,96 @@ describe("Version API", () => {
     expect(version.nodeVersion).toMatch(/^v\d+\.\d+\.\d+/);
   });
 });
+
+describe("Stats API", () => {
+  it("GET /api/stats returns correct status and format", async () => {
+    const res = await app.request("/api/stats");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("content-type")).toContain("application/json");
+
+    const stats = await res.json();
+
+    // Check exact fields structure
+    expect(stats).toHaveProperty("requests");
+    expect(stats).toHaveProperty("uptime");
+    expect(stats).toHaveProperty("memory");
+
+    // Validate requests structure
+    expect(stats.requests).toHaveProperty("total");
+    expect(typeof stats.requests.total).toBe("number");
+    expect(stats.requests.total).toBeGreaterThan(0);
+
+    // Validate uptime
+    expect(typeof stats.uptime).toBe("number");
+    expect(stats.uptime).toBeGreaterThanOrEqual(0);
+    expect(Number.isInteger(stats.uptime)).toBe(true);
+
+    // Validate memory structure
+    expect(stats.memory).toHaveProperty("rss");
+    expect(stats.memory).toHaveProperty("heapTotal");
+    expect(stats.memory).toHaveProperty("heapUsed");
+    expect(stats.memory).toHaveProperty("external");
+
+    // All memory values should be positive numbers
+    expect(typeof stats.memory.rss).toBe("number");
+    expect(typeof stats.memory.heapTotal).toBe("number");
+    expect(typeof stats.memory.heapUsed).toBe("number");
+    expect(typeof stats.memory.external).toBe("number");
+    expect(stats.memory.rss).toBeGreaterThan(0);
+    expect(stats.memory.heapTotal).toBeGreaterThan(0);
+    expect(stats.memory.heapUsed).toBeGreaterThan(0);
+    expect(stats.memory.external).toBeGreaterThanOrEqual(0);
+  });
+
+  it("GET /api/stats request counter increases with each call", async () => {
+    const res1 = await app.request("/api/stats");
+    const stats1 = await res1.json();
+
+    const res2 = await app.request("/api/stats");
+    const stats2 = await res2.json();
+
+    expect(stats2.requests.total).toBeGreaterThan(stats1.requests.total);
+    expect(stats2.requests.total - stats1.requests.total).toBeGreaterThanOrEqual(1);
+  });
+
+  it("GET /api/stats uptime increases over time", async () => {
+    const res1 = await app.request("/api/stats");
+    const stats1 = await res1.json();
+
+    // Small delay to ensure uptime difference
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    const res2 = await app.request("/api/stats");
+    const stats2 = await res2.json();
+
+    expect(stats2.uptime).toBeGreaterThanOrEqual(stats1.uptime);
+  });
+
+  it("GET /api/stats memory usage values are reasonable", async () => {
+    const res = await app.request("/api/stats");
+    const stats = await res.json();
+
+    // Basic sanity checks for memory values
+    expect(stats.memory.heapUsed).toBeLessThanOrEqual(stats.memory.heapTotal);
+    expect(stats.memory.rss).toBeGreaterThan(stats.memory.heapTotal);
+
+    // Memory values should be within reasonable ranges (not negative or extremely large)
+    expect(stats.memory.rss).toBeLessThan(1024 * 1024 * 1024 * 10); // Less than 10GB
+    expect(stats.memory.heapTotal).toBeLessThan(1024 * 1024 * 1024 * 10); // Less than 10GB
+  });
+
+  it("GET /api/stats tracks requests from other endpoints", async () => {
+    const res1 = await app.request("/api/stats");
+    const stats1 = await res1.json();
+
+    // Make requests to other endpoints
+    await app.request("/api/health");
+    await app.request("/api/version");
+
+    const res2 = await app.request("/api/stats");
+    const stats2 = await res2.json();
+
+    // Should have increased by at least 3 (health + version + stats)
+    expect(stats2.requests.total - stats1.requests.total).toBeGreaterThanOrEqual(3);
+  });
+});
