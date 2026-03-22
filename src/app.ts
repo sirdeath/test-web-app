@@ -5,6 +5,7 @@ import {
   createTodo,
   updateTodo,
   deleteTodo,
+  deleteAllTodos,
 } from "./todos.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -99,6 +100,12 @@ app.delete("/api/todos/:id", (c) => {
   const deleted = deleteTodo(Number(c.req.param("id")));
   if (!deleted) return c.json({ error: "Not found" }, 404);
   return c.json({ success: true });
+});
+
+// Delete all todos
+app.delete("/api/todos", (c) => {
+  const deletedCount = deleteAllTodos();
+  return c.json({ deletedCount });
 });
 
 export default app;
