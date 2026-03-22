@@ -15,6 +15,11 @@ const app = new Hono();
 // Track server start time for uptime calculation
 const serverStartTime = Date.now();
 
+// Load package.json once at startup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8"));
+
 // Health check endpoint
 app.get("/api/health", (c) => {
   const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
@@ -23,11 +28,6 @@ app.get("/api/health", (c) => {
 
 // Version endpoint
 app.get("/api/version", (c) => {
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  const packageJsonPath = join(__dirname, "..", "package.json");
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, "utf8"));
-
   return c.json({
     name: packageJson.name,
     version: packageJson.version,

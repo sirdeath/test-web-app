@@ -103,49 +103,20 @@ describe("Health API", () => {
 });
 
 describe("Version API", () => {
-  it("GET /api/version returns correct version information", async () => {
-    const res = await app.request("/api/version");
-    expect(res.status).toBe(200);
-
-    const version = await res.json();
-    expect(version.name).toBe("test-web-app");
-    expect(version.version).toBe("1.0.0");
-    expect(typeof version.nodeVersion).toBe("string");
-    expect(version.nodeVersion).toMatch(/^v\d+\.\d+\.\d+/);
-  });
-
-  it("GET /api/version returns response with correct content type", async () => {
+  it("GET /api/version returns complete version information", async () => {
     const res = await app.request("/api/version");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toContain("application/json");
-  });
 
-  it("GET /api/version response has exactly the expected fields", async () => {
-    const res = await app.request("/api/version");
     const version = await res.json();
 
+    // Check exact fields
     const expectedFields = ["name", "version", "nodeVersion"];
-    const actualFields = Object.keys(version);
+    expect(Object.keys(version)).toEqual(expectedFields);
 
-    expect(actualFields.length).toBe(expectedFields.length);
-    expectedFields.forEach(field => {
-      expect(actualFields).toContain(field);
-    });
-  });
-
-  it("GET /api/version validates field types and formats", async () => {
-    const res = await app.request("/api/version");
-    const version = await res.json();
-
-    // Name field validation
-    expect(typeof version.name).toBe("string");
-    expect(version.name.length).toBeGreaterThan(0);
-
-    // Version field validation
-    expect(typeof version.version).toBe("string");
-    expect(version.version).toMatch(/^\d+\.\d+\.\d+$/);
-
-    // Node version field validation
+    // Validate field values and types
+    expect(version.name).toBe("test-web-app");
+    expect(version.version).toBe("1.0.0");
     expect(typeof version.nodeVersion).toBe("string");
     expect(version.nodeVersion).toMatch(/^v\d+\.\d+\.\d+/);
   });
