@@ -38,7 +38,12 @@ describe("TODO API", () => {
     const res = await app.request("/api/todos/1");
     expect(res.status).toBe(200);
     const todo = await res.json();
-    expect(todo.title).toBe("Test todo");
+    expect(todo).toEqual({
+      id: 1,
+      title: "Test todo",
+      completed: false,
+      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    });
   });
 
   it("GET /api/todos/:id returns 404 for non-existent todo", async () => {
@@ -47,11 +52,13 @@ describe("TODO API", () => {
   });
 
   it("PATCH /api/todos/:id updates a todo", async () => {
-    await app.request("/api/todos", {
+    const createRes = await app.request("/api/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ title: "Original" }),
     });
+    const createdTodo = await createRes.json();
+
     const res = await app.request("/api/todos/1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -59,7 +66,12 @@ describe("TODO API", () => {
     });
     expect(res.status).toBe(200);
     const todo = await res.json();
-    expect(todo.completed).toBe(true);
+    expect(todo).toEqual({
+      id: 1,
+      title: "Original",
+      completed: true,
+      createdAt: createdTodo.createdAt // createdAt should remain unchanged
+    });
   });
 
   it("DELETE /api/todos/:id deletes a todo", async () => {
