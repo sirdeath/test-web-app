@@ -81,25 +81,31 @@ describe("TODO API", () => {
 });
 
 describe("TODO Filtering API", () => {
-  it("GET /api/todos?completed=true returns only completed todos", async () => {
-    // Create todos with different statuses
-    await app.request("/api/todos", {
+  // Helper functions to reduce duplication
+  const createTodo = async (title: string) => {
+    return app.request("/api/todos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Completed task" }),
+      body: JSON.stringify({ title }),
     });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Incomplete task" }),
-    });
+  };
 
-    // Mark first todo as completed
-    await app.request("/api/todos/1", {
+  const completeTodo = async (id: number) => {
+    return app.request(`/api/todos/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ completed: true }),
     });
+  };
+
+  const setupMixedTodos = async () => {
+    await createTodo("Completed task");
+    await createTodo("Incomplete task");
+    await completeTodo(1);
+  };
+
+  it("GET /api/todos?completed=true returns only completed todos", async () => {
+    await setupMixedTodos();
 
     const res = await app.request("/api/todos?completed=true");
     expect(res.status).toBe(200);
@@ -109,24 +115,7 @@ describe("TODO Filtering API", () => {
   });
 
   it("GET /api/todos?completed=false returns only incomplete todos", async () => {
-    // Create todos with different statuses
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Completed task" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Incomplete task" }),
-    });
-
-    // Mark first todo as completed
-    await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
+    await setupMixedTodos();
 
     const res = await app.request("/api/todos?completed=false");
     expect(res.status).toBe(200);
@@ -136,24 +125,7 @@ describe("TODO Filtering API", () => {
   });
 
   it("GET /api/todos without filter returns all todos", async () => {
-    // Create todos with different statuses
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Completed task" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Incomplete task" }),
-    });
-
-    // Mark first todo as completed
-    await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
+    await setupMixedTodos();
 
     const res = await app.request("/api/todos");
     expect(res.status).toBe(200);
@@ -171,17 +143,8 @@ describe("TODO Filtering API", () => {
   });
 
   it("GET /api/todos?completed=true returns empty array when no completed todos exist", async () => {
-    // Create only incomplete todos
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Incomplete task 1" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Incomplete task 2" }),
-    });
+    await createTodo("Incomplete task 1");
+    await createTodo("Incomplete task 2");
 
     const res = await app.request("/api/todos?completed=true");
     expect(res.status).toBe(200);
@@ -189,29 +152,10 @@ describe("TODO Filtering API", () => {
   });
 
   it("GET /api/todos?completed=false returns empty array when no incomplete todos exist", async () => {
-    // Create and complete all todos
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Task 1" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Task 2" }),
-    });
-
-    // Mark both as completed
-    await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
-    await app.request("/api/todos/2", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
+    await createTodo("Task 1");
+    await createTodo("Task 2");
+    await completeTodo(1);
+    await completeTodo(2);
 
     const res = await app.request("/api/todos?completed=false");
     expect(res.status).toBe(200);
@@ -219,34 +163,11 @@ describe("TODO Filtering API", () => {
   });
 
   it("GET /api/todos filtering works with multiple todos of same status", async () => {
-    // Create multiple completed todos
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Completed task 1" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Completed task 2" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Incomplete task" }),
-    });
-
-    // Mark first two as completed
-    await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
-    await app.request("/api/todos/2", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
+    await createTodo("Completed task 1");
+    await createTodo("Completed task 2");
+    await createTodo("Incomplete task");
+    await completeTodo(1);
+    await completeTodo(2);
 
     const res = await app.request("/api/todos?completed=true");
     expect(res.status).toBe(200);
