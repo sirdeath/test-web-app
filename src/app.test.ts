@@ -15,6 +15,14 @@ const createTodo = async (title: string) => {
   });
 };
 
+const updateTodo = async (id: number, updates: object) => {
+  return app.request(`/api/todos/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+};
+
 const deleteAllTodos = async () => {
   return app.request("/api/todos", { method: "DELETE" });
 };
@@ -28,6 +36,11 @@ const verifyDeleteResult = async (res: Response, expectedCount: number) => {
   expect(res.status).toBe(200);
   const result = await res.json();
   expect(result).toEqual({ deletedCount: expectedCount });
+};
+
+const getTodoList = async () => {
+  const listRes = await app.request("/api/todos");
+  return await listRes.json();
 };
 
 describe("TODO API", () => {
@@ -59,11 +72,7 @@ describe("TODO API", () => {
 
   it("PATCH /api/todos/:id updates a todo", async () => {
     await createTodo("Original");
-    const res = await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
+    const res = await updateTodo(1, { completed: true });
     expect(res.status).toBe(200);
     const todo = await res.json();
     expect(todo.completed).toBe(true);
@@ -111,11 +120,7 @@ describe("TODO API", () => {
   it("DELETE /api/todos works with completed and uncompleted todos", async () => {
     // Create completed todo
     await createTodo("Completed todo");
-    await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
+    await updateTodo(1, { completed: true });
 
     // Create uncompleted todo
     await createTodo("Uncompleted todo");
@@ -138,8 +143,7 @@ describe("TODO API", () => {
     const newTodo = await createRes.json();
     expect(newTodo.title).toBe("New todo after deletion");
 
-    const listRes = await app.request("/api/todos");
-    const todos = await listRes.json();
+    const todos = await getTodoList();
     expect(todos).toHaveLength(1);
     expect(todos[0].title).toBe("New todo after deletion");
   });
