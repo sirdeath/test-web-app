@@ -66,6 +66,15 @@ app.get("/api/stats", (c) => {
 
 // List all todos
 app.get("/api/todos", (c) => {
+  const completedParam = c.req.query("completed");
+
+  if (completedParam !== undefined) {
+    if (completedParam !== "true" && completedParam !== "false") {
+      return c.json({ error: "completed parameter must be 'true' or 'false'" }, 400);
+    }
+    return c.json(getAllTodos(completedParam === "true"));
+  }
+
   return c.json(getAllTodos());
 });
 
