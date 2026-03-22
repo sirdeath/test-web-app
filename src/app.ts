@@ -24,6 +24,9 @@ app.use('*', (c, next) => {
   return next();
 });
 
+// Helper function for uptime calculation
+const getUptime = () => Math.floor((Date.now() - serverStartTime) / 1000);
+
 // Load package.json once at startup
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -31,8 +34,7 @@ const packageJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"
 
 // Health check endpoint
 app.get("/api/health", (c) => {
-  const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
-  return c.json({ status: "ok", uptime });
+  return c.json({ status: "ok", uptime: getUptime() });
 });
 
 // Version endpoint
@@ -46,14 +48,13 @@ app.get("/api/version", (c) => {
 
 // Stats endpoint
 app.get("/api/stats", (c) => {
-  const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
   const memory = process.memoryUsage();
 
   return c.json({
     requests: {
       total: requestCount
     },
-    uptime: uptime,
+    uptime: getUptime(),
     memory: {
       rss: memory.rss,
       heapTotal: memory.heapTotal,
@@ -101,4 +102,3 @@ app.delete("/api/todos/:id", (c) => {
 });
 
 export default app;
-export { requestCount };

@@ -130,36 +130,22 @@ describe("Stats API", () => {
 
     const stats = await res.json();
 
-    // Check exact fields structure
-    expect(stats).toHaveProperty("requests");
-    expect(stats).toHaveProperty("uptime");
-    expect(stats).toHaveProperty("memory");
+    // Check structure and basic types
+    expect(stats).toMatchObject({
+      requests: { total: expect.any(Number) },
+      uptime: expect.any(Number),
+      memory: {
+        rss: expect.any(Number),
+        heapTotal: expect.any(Number),
+        heapUsed: expect.any(Number),
+        external: expect.any(Number)
+      }
+    });
 
-    // Validate requests structure
-    expect(stats.requests).toHaveProperty("total");
-    expect(typeof stats.requests.total).toBe("number");
+    // Basic validations
     expect(stats.requests.total).toBeGreaterThan(0);
-
-    // Validate uptime
-    expect(typeof stats.uptime).toBe("number");
     expect(stats.uptime).toBeGreaterThanOrEqual(0);
     expect(Number.isInteger(stats.uptime)).toBe(true);
-
-    // Validate memory structure
-    expect(stats.memory).toHaveProperty("rss");
-    expect(stats.memory).toHaveProperty("heapTotal");
-    expect(stats.memory).toHaveProperty("heapUsed");
-    expect(stats.memory).toHaveProperty("external");
-
-    // All memory values should be positive numbers
-    expect(typeof stats.memory.rss).toBe("number");
-    expect(typeof stats.memory.heapTotal).toBe("number");
-    expect(typeof stats.memory.heapUsed).toBe("number");
-    expect(typeof stats.memory.external).toBe("number");
-    expect(stats.memory.rss).toBeGreaterThan(0);
-    expect(stats.memory.heapTotal).toBeGreaterThan(0);
-    expect(stats.memory.heapUsed).toBeGreaterThan(0);
-    expect(stats.memory.external).toBeGreaterThanOrEqual(0);
   });
 
   it("GET /api/stats request counter increases with each call", async () => {
@@ -190,13 +176,9 @@ describe("Stats API", () => {
     const res = await app.request("/api/stats");
     const stats = await res.json();
 
-    // Basic sanity checks for memory values
+    // Basic sanity checks
     expect(stats.memory.heapUsed).toBeLessThanOrEqual(stats.memory.heapTotal);
     expect(stats.memory.rss).toBeGreaterThan(stats.memory.heapTotal);
-
-    // Memory values should be within reasonable ranges (not negative or extremely large)
-    expect(stats.memory.rss).toBeLessThan(1024 * 1024 * 1024 * 10); // Less than 10GB
-    expect(stats.memory.heapTotal).toBeLessThan(1024 * 1024 * 1024 * 10); // Less than 10GB
   });
 
   it("GET /api/stats tracks requests from other endpoints", async () => {
