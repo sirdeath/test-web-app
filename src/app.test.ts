@@ -81,17 +81,7 @@ describe("TODO API", () => {
 });
 
 describe("Health API", () => {
-  it("GET /api/health returns health status with uptime", async () => {
-    const res = await app.request("/api/health");
-    expect(res.status).toBe(200);
-    const health = await res.json();
-    expect(health).toHaveProperty("status", "ok");
-    expect(health).toHaveProperty("uptime");
-    expect(typeof health.uptime).toBe("number");
-    expect(health.uptime).toBeGreaterThanOrEqual(0);
-  });
-
-  it("GET /api/health returns correct response format", async () => {
+  it("GET /api/health returns correct status and format", async () => {
     const res = await app.request("/api/health");
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toMatch(/application\/json/);
@@ -100,13 +90,13 @@ describe("Health API", () => {
     expect(Object.keys(health)).toEqual(["status", "uptime"]);
     expect(health.status).toBe("ok");
     expect(Number.isInteger(health.uptime)).toBe(true);
+    expect(health.uptime).toBeGreaterThanOrEqual(0);
   });
 
   it("GET /api/health uptime increases over time", async () => {
     const res1 = await app.request("/api/health");
     const health1 = await res1.json();
 
-    // Wait a small amount of time
     await new Promise(resolve => setTimeout(resolve, 100));
 
     const res2 = await app.request("/api/health");
