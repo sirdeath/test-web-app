@@ -101,3 +101,16 @@ describe("Health API", () => {
     expect(health2.uptime).toBeGreaterThanOrEqual(health1.uptime);
   });
 });
+
+describe("Version API", () => {
+  it("GET /api/version returns correct version information", async () => {
+    const res = await app.request("/api/version");
+    expect(res.status).toBe(200);
+
+    const version = await res.json();
+    expect(version.name).toBe("test-web-app");
+    expect(version.version).toBe("1.0.0");
+    expect(typeof version.nodeVersion).toBe("string");
+    expect(version.nodeVersion).toMatch(/^v\d+\.\d+\.\d+/);
+  });
+});
