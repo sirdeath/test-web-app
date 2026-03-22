@@ -7,7 +7,10 @@ export interface Todo {
 let todos: Todo[] = [];
 let nextId = 1;
 
-export function getAllTodos(): Todo[] {
+export function getAllTodos(completed?: boolean): Todo[] {
+  if (completed !== undefined) {
+    return todos.filter((todo) => todo.completed === completed);
+  }
   return todos;
 }
 
