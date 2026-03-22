@@ -2,9 +2,20 @@ import { describe, it, expect, beforeEach } from "vitest";
 import app from "./app.js";
 import { resetTodos } from "./todos.js";
 
+const ISO_8601_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
 beforeEach(() => {
   resetTodos();
 });
+
+async function createTodo(title: string) {
+  const res = await app.request("/api/todos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+  return { res, todo: await res.json() };
+}
 
 describe("TODO API", () => {
   it("GET /api/todos returns empty array initially", async () => {
@@ -14,27 +25,18 @@ describe("TODO API", () => {
   });
 
   it("POST /api/todos creates a todo", async () => {
-    const res = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Buy milk" }),
-    });
+    const { res, todo } = await createTodo("Buy milk");
     expect(res.status).toBe(201);
-    const todo = await res.json();
     expect(todo).toEqual({
       id: 1,
       title: "Buy milk",
       completed: false,
-      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+      createdAt: expect.stringMatching(ISO_8601_REGEX)
     });
   });
 
   it("GET /api/todos/:id returns a specific todo", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Test todo" }),
-    });
+    await createTodo("Test todo");
     const res = await app.request("/api/todos/1");
     expect(res.status).toBe(200);
     const todo = await res.json();
@@ -42,7 +44,7 @@ describe("TODO API", () => {
       id: 1,
       title: "Test todo",
       completed: false,
-      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+      createdAt: expect.stringMatching(ISO_8601_REGEX)
     });
   });
 
@@ -52,12 +54,7 @@ describe("TODO API", () => {
   });
 
   it("PATCH /api/todos/:id updates a todo", async () => {
-    const createRes = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Original" }),
-    });
-    const createdTodo = await createRes.json();
+    const { todo: createdTodo } = await createTodo("Original");
 
     const res = await app.request("/api/todos/1", {
       method: "PATCH",
@@ -70,16 +67,12 @@ describe("TODO API", () => {
       id: 1,
       title: "Original",
       completed: true,
-      createdAt: createdTodo.createdAt // createdAt should remain unchanged
+      createdAt: createdTodo.createdAt
     });
   });
 
   it("DELETE /api/todos/:id deletes a todo", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "To delete" }),
-    });
+    await createTodo("To delete");
     const res = await app.request("/api/todos/1", { method: "DELETE" });
     expect(res.status).toBe(200);
 
@@ -100,39 +93,18 @@ describe("TODO API", () => {
 describe("TODO createdAt functionality", () => {
   it("createdAt is close to current time when creating a todo", async () => {
     const beforeCreation = new Date();
-
-    const res = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Time test" }),
-    });
-
+    const { todo } = await createTodo("Time test");
     const afterCreation = new Date();
-    const todo = await res.json();
-    const todoCreatedAt = new Date(todo.createdAt);
 
+    const todoCreatedAt = new Date(todo.createdAt);
     expect(todoCreatedAt.getTime()).toBeGreaterThanOrEqual(beforeCreation.getTime());
     expect(todoCreatedAt.getTime()).toBeLessThanOrEqual(afterCreation.getTime());
   });
 
   it("multiple todos have createdAt in chronological order", async () => {
-    const res1 = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "First todo" }),
-    });
-
-    // Small delay to ensure different timestamps
+    const { todo: todo1 } = await createTodo("First todo");
     await new Promise(resolve => setTimeout(resolve, 1));
-
-    const res2 = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Second todo" }),
-    });
-
-    const todo1 = await res1.json();
-    const todo2 = await res2.json();
+    const { todo: todo2 } = await createTodo("Second todo");
 
     expect(new Date(todo1.createdAt).getTime()).toBeLessThanOrEqual(new Date(todo2.createdAt).getTime());
   });
@@ -156,34 +128,18 @@ describe("TODO createdAt functionality", () => {
   });
 
   it("createdAt remains unchanged when updating todo properties", async () => {
-    const createRes = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Original title" }),
-    });
-    const originalTodo = await createRes.json();
+    const { todo: originalTodo } = await createTodo("Original title");
 
-    // Update title
-    const updateTitleRes = await app.request("/api/todos/1", {
+    const updateRes = await app.request("/api/todos/1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Updated title" }),
+      body: JSON.stringify({ title: "Updated title", completed: true }),
     });
-    const updatedTodo = await updateTitleRes.json();
+    const updatedTodo = await updateRes.json();
 
     expect(updatedTodo.createdAt).toBe(originalTodo.createdAt);
     expect(updatedTodo.title).toBe("Updated title");
-
-    // Update completed status
-    const updateCompletedRes = await app.request("/api/todos/1", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ completed: true }),
-    });
-    const finalTodo = await updateCompletedRes.json();
-
-    expect(finalTodo.createdAt).toBe(originalTodo.createdAt);
-    expect(finalTodo.completed).toBe(true);
+    expect(updatedTodo.completed).toBe(true);
   });
 
   it("each todo gets a createdAt timestamp (may be same for rapid creation)", async () => {
@@ -210,7 +166,7 @@ describe("TODO createdAt functionality", () => {
     // Check that all values are valid timestamps
     createdAtValues.forEach(createdAt => {
       expect(typeof createdAt).toBe("string");
-      expect(createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      expect(createdAt).toMatch(ISO_8601_REGEX);
       expect(isNaN(new Date(createdAt).getTime())).toBe(false);
     });
 
