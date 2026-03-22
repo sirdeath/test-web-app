@@ -75,9 +75,7 @@ describe("TODO API", () => {
     await createTodo("To delete");
     const res = await app.request("/api/todos/1", { method: "DELETE" });
     expect(res.status).toBe(200);
-
-    const listRes = await app.request("/api/todos");
-    expect(await listRes.json()).toEqual([]);
+    await verifyEmptyTodoList();
   });
 
   it("POST /api/todos returns 400 without title", async () => {
@@ -87,6 +85,157 @@ describe("TODO API", () => {
       body: JSON.stringify({}),
     });
     expect(res.status).toBe(400);
+  });
+
+  it("DELETE /api/todos deletes all todos when list is empty", async () => {
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 0);
+    await verifyEmptyTodoList();
+  });
+
+  it("DELETE /api/todos deletes all todos when one todo exists", async () => {
+    await createTodo("Single todo");
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 1);
+    await verifyEmptyTodoList();
+  });
+
+  it("DELETE /api/todos deletes all todos when multiple todos exist", async () => {
+    await createTodo("First todo");
+    await createTodo("Second todo");
+    await createTodo("Third todo");
+
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 3);
+    await verifyEmptyTodoList();
+  });
+
+  it("DELETE /api/todos works with completed and uncompleted todos", async () => {
+    // Create completed todo
+    await createTodo("Completed todo");
+    await updateTodo(1, { completed: true });
+
+    // Create uncompleted todo
+    await createTodo("Uncompleted todo");
+
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 2);
+    await verifyEmptyTodoList();
+  });
+
+  it("DELETE /api/todos resets the list for subsequent operations", async () => {
+    // Create and delete all todos
+    await createTodo("Test todo");
+    const deleteRes = await deleteAllTodos();
+    expect(deleteRes.status).toBe(200);
+
+    // Verify we can create new todos after deletion
+    const createRes = await createTodo("New todo after deletion");
+    expect(createRes.status).toBe(201);
+
+    const newTodo = await createRes.json();
+    expect(newTodo.title).toBe("New todo after deletion");
+
+    const todos = await getTodoList();
+    expect(todos).toHaveLength(1);
+    expect(todos[0].title).toBe("New todo after deletion");
+  });
+});
+
+describe("TODO Filtering API", () => {
+  // Helper functions to reduce duplication
+  const createTodo = async (title: string) => {
+    return app.request("/api/todos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    });
+  };
+
+  const completeTodo = async (id: number) => {
+    return app.request(`/api/todos/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ completed: true }),
+    });
+  };
+
+  const setupMixedTodos = async () => {
+    await createTodo("Completed task");
+    await createTodo("Incomplete task");
+    await completeTodo(1);
+  };
+
+  it("GET /api/todos?completed=true returns only completed todos", async () => {
+    await setupMixedTodos();
+
+    const res = await app.request("/api/todos?completed=true");
+    expect(res.status).toBe(200);
+    const todos = await res.json();
+    expect(todos).toHaveLength(1);
+    expect(todos[0]).toEqual({ id: 1, title: "Completed task", completed: true });
+  });
+
+  it("GET /api/todos?completed=false returns only incomplete todos", async () => {
+    await setupMixedTodos();
+
+    const res = await app.request("/api/todos?completed=false");
+    expect(res.status).toBe(200);
+    const todos = await res.json();
+    expect(todos).toHaveLength(1);
+    expect(todos[0]).toEqual({ id: 2, title: "Incomplete task", completed: false });
+  });
+
+  it("GET /api/todos without filter returns all todos", async () => {
+    await setupMixedTodos();
+
+    const res = await app.request("/api/todos");
+    expect(res.status).toBe(200);
+    const todos = await res.json();
+    expect(todos).toHaveLength(2);
+    expect(todos[0].completed).toBe(true);
+    expect(todos[1].completed).toBe(false);
+  });
+
+  it("GET /api/todos?completed=invalid returns 400 error", async () => {
+    const res = await app.request("/api/todos?completed=invalid");
+    expect(res.status).toBe(400);
+    const error = await res.json();
+    expect(error.error).toBe("completed parameter must be 'true' or 'false'");
+  });
+
+  it("GET /api/todos?completed=true returns empty array when no completed todos exist", async () => {
+    await createTodo("Incomplete task 1");
+    await createTodo("Incomplete task 2");
+
+    const res = await app.request("/api/todos?completed=true");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("GET /api/todos?completed=false returns empty array when no incomplete todos exist", async () => {
+    await createTodo("Task 1");
+    await createTodo("Task 2");
+    await completeTodo(1);
+    await completeTodo(2);
+
+    const res = await app.request("/api/todos?completed=false");
+    expect(res.status).toBe(200);
+    expect(await res.json()).toEqual([]);
+  });
+
+  it("GET /api/todos filtering works with multiple todos of same status", async () => {
+    await createTodo("Completed task 1");
+    await createTodo("Completed task 2");
+    await createTodo("Incomplete task");
+    await completeTodo(1);
+    await completeTodo(2);
+
+    const res = await app.request("/api/todos?completed=true");
+    expect(res.status).toBe(200);
+    const todos = await res.json();
+    expect(todos).toHaveLength(2);
+    expect(todos.every(todo => todo.completed === true)).toBe(true);
   });
 });
 

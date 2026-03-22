@@ -5,6 +5,7 @@ import {
   createTodo,
   updateTodo,
   deleteTodo,
+  deleteAllTodos,
 } from "./todos.js";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
@@ -66,6 +67,15 @@ app.get("/api/stats", (c) => {
 
 // List all todos
 app.get("/api/todos", (c) => {
+  const completedParam = c.req.query("completed");
+
+  if (completedParam !== undefined) {
+    if (completedParam !== "true" && completedParam !== "false") {
+      return c.json({ error: "completed parameter must be 'true' or 'false'" }, 400);
+    }
+    return c.json(getAllTodos(completedParam === "true"));
+  }
+
   return c.json(getAllTodos());
 });
 
@@ -99,6 +109,12 @@ app.delete("/api/todos/:id", (c) => {
   const deleted = deleteTodo(Number(c.req.param("id")));
   if (!deleted) return c.json({ error: "Not found" }, 404);
   return c.json({ success: true });
+});
+
+// Delete all todos
+app.delete("/api/todos", (c) => {
+  const deletedCount = deleteAllTodos();
+  return c.json({ deletedCount });
 });
 
 export default app;

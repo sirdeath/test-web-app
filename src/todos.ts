@@ -8,7 +8,10 @@ export interface Todo {
 let todos: Todo[] = [];
 let nextId = 1;
 
-export function getAllTodos(): Todo[] {
+export function getAllTodos(completed?: boolean): Todo[] {
+  if (completed !== undefined) {
+    return todos.filter((todo) => todo.completed === completed);
+  }
   return todos;
 }
 
@@ -38,6 +41,12 @@ export function deleteTodo(id: number): boolean {
   if (index === -1) return false;
   todos.splice(index, 1);
   return true;
+}
+
+export function deleteAllTodos(): number {
+  const deletedCount = todos.length;
+  todos = [];
+  return deletedCount;
 }
 
 export function resetTodos(): void {
