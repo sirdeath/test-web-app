@@ -110,16 +110,10 @@ describe("TODO createdAt functionality", () => {
   });
 
   it("createdAt format is valid ISO 8601 string", async () => {
-    const res = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "ISO test" }),
-    });
-
-    const todo = await res.json();
+    const { todo } = await createTodo("ISO test");
 
     // Check ISO 8601 format
-    expect(todo.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    expect(todo.createdAt).toMatch(ISO_8601_REGEX);
 
     // Validate it's a parseable date
     const parsed = new Date(todo.createdAt);
@@ -147,12 +141,8 @@ describe("TODO createdAt functionality", () => {
 
     // Create multiple todos with small delays
     for (let i = 0; i < 3; i++) {
-      const res = await app.request("/api/todos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title: `Todo ${i + 1}` }),
-      });
-      todos.push(await res.json());
+      const { todo } = await createTodo(`Todo ${i + 1}`);
+      todos.push(todo);
 
       // Small delay to potentially get different timestamps
       if (i < 2) {
@@ -179,17 +169,8 @@ describe("TODO createdAt functionality", () => {
   });
 
   it("createdAt is included in todo list response", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "List test 1" }),
-    });
-
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "List test 2" }),
-    });
+    await createTodo("List test 1");
+    await createTodo("List test 2");
 
     const listRes = await app.request("/api/todos");
     const todoList = await listRes.json();
@@ -199,7 +180,7 @@ describe("TODO createdAt functionality", () => {
     todoList.forEach(todo => {
       expect(todo).toHaveProperty("createdAt");
       expect(typeof todo.createdAt).toBe("string");
-      expect(todo.createdAt).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+      expect(todo.createdAt).toMatch(ISO_8601_REGEX);
     });
   });
 });
