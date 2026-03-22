@@ -21,7 +21,12 @@ describe("TODO API", () => {
     });
     expect(res.status).toBe(201);
     const todo = await res.json();
-    expect(todo).toEqual({ id: 1, title: "Buy milk", completed: false });
+    expect(todo).toEqual({
+      id: 1,
+      title: "Buy milk",
+      completed: false,
+      createdAt: expect.stringMatching(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/)
+    });
   });
 
   it("GET /api/todos/:id returns a specific todo", async () => {

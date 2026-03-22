@@ -2,6 +2,7 @@ export interface Todo {
   id: number;
   title: string;
   completed: boolean;
+  createdAt: string;
 }
 
 let todos: Todo[] = [];
@@ -16,7 +17,7 @@ export function getTodoById(id: number): Todo | undefined {
 }
 
 export function createTodo(title: string): Todo {
-  const todo: Todo = { id: nextId++, title, completed: false };
+  const todo: Todo = { id: nextId++, title, completed: false, createdAt: new Date().toISOString() };
   todos.push(todo);
   return todo;
 }
