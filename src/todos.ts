@@ -39,6 +39,12 @@ export function deleteTodo(id: number): boolean {
   return true;
 }
 
+export function deleteAllTodos(): number {
+  const deletedCount = todos.length;
+  todos = [];
+  return deletedCount;
+}
+
 export function resetTodos(): void {
   todos = [];
   nextId = 1;
