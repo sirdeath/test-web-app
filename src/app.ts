@@ -15,6 +15,15 @@ const app = new Hono();
 // Track server start time for uptime calculation
 const serverStartTime = Date.now();
 
+// Global request counter
+let requestCount = 0;
+
+// Request tracking middleware
+app.use('*', (c, next) => {
+  requestCount++;
+  return next();
+});
+
 // Load package.json once at startup
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -73,3 +82,4 @@ app.delete("/api/todos/:id", (c) => {
 });
 
 export default app;
+export { requestCount };
