@@ -6,6 +6,30 @@ beforeEach(() => {
   resetTodos();
 });
 
+// Helper functions for test simplification
+const createTodo = async (title: string) => {
+  return app.request("/api/todos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ title }),
+  });
+};
+
+const deleteAllTodos = async () => {
+  return app.request("/api/todos", { method: "DELETE" });
+};
+
+const verifyEmptyTodoList = async () => {
+  const listRes = await app.request("/api/todos");
+  expect(await listRes.json()).toEqual([]);
+};
+
+const verifyDeleteResult = async (res: Response, expectedCount: number) => {
+  expect(res.status).toBe(200);
+  const result = await res.json();
+  expect(result).toEqual({ deletedCount: expectedCount });
+};
+
 describe("TODO API", () => {
   it("GET /api/todos returns empty array initially", async () => {
     const res = await app.request("/api/todos");
@@ -14,22 +38,14 @@ describe("TODO API", () => {
   });
 
   it("POST /api/todos creates a todo", async () => {
-    const res = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Buy milk" }),
-    });
+    const res = await createTodo("Buy milk");
     expect(res.status).toBe(201);
     const todo = await res.json();
     expect(todo).toEqual({ id: 1, title: "Buy milk", completed: false });
   });
 
   it("GET /api/todos/:id returns a specific todo", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Test todo" }),
-    });
+    await createTodo("Test todo");
     const res = await app.request("/api/todos/1");
     expect(res.status).toBe(200);
     const todo = await res.json();
@@ -42,11 +58,7 @@ describe("TODO API", () => {
   });
 
   it("PATCH /api/todos/:id updates a todo", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Original" }),
-    });
+    await createTodo("Original");
     const res = await app.request("/api/todos/1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -58,16 +70,10 @@ describe("TODO API", () => {
   });
 
   it("DELETE /api/todos/:id deletes a todo", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "To delete" }),
-    });
+    await createTodo("To delete");
     const res = await app.request("/api/todos/1", { method: "DELETE" });
     expect(res.status).toBe(200);
-
-    const listRes = await app.request("/api/todos");
-    expect(await listRes.json()).toEqual([]);
+    await verifyEmptyTodoList();
   });
 
   it("POST /api/todos returns 400 without title", async () => {
@@ -80,67 +86,31 @@ describe("TODO API", () => {
   });
 
   it("DELETE /api/todos deletes all todos when list is empty", async () => {
-    const res = await app.request("/api/todos", { method: "DELETE" });
-    expect(res.status).toBe(200);
-
-    const result = await res.json();
-    expect(result).toEqual({ deletedCount: 0 });
-
-    const listRes = await app.request("/api/todos");
-    expect(await listRes.json()).toEqual([]);
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 0);
+    await verifyEmptyTodoList();
   });
 
   it("DELETE /api/todos deletes all todos when one todo exists", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Single todo" }),
-    });
-
-    const res = await app.request("/api/todos", { method: "DELETE" });
-    expect(res.status).toBe(200);
-
-    const result = await res.json();
-    expect(result).toEqual({ deletedCount: 1 });
-
-    const listRes = await app.request("/api/todos");
-    expect(await listRes.json()).toEqual([]);
+    await createTodo("Single todo");
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 1);
+    await verifyEmptyTodoList();
   });
 
   it("DELETE /api/todos deletes all todos when multiple todos exist", async () => {
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "First todo" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Second todo" }),
-    });
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Third todo" }),
-    });
+    await createTodo("First todo");
+    await createTodo("Second todo");
+    await createTodo("Third todo");
 
-    const res = await app.request("/api/todos", { method: "DELETE" });
-    expect(res.status).toBe(200);
-
-    const result = await res.json();
-    expect(result).toEqual({ deletedCount: 3 });
-
-    const listRes = await app.request("/api/todos");
-    expect(await listRes.json()).toEqual([]);
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 3);
+    await verifyEmptyTodoList();
   });
 
   it("DELETE /api/todos works with completed and uncompleted todos", async () => {
     // Create completed todo
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Completed todo" }),
-    });
+    await createTodo("Completed todo");
     await app.request("/api/todos/1", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -148,39 +118,21 @@ describe("TODO API", () => {
     });
 
     // Create uncompleted todo
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Uncompleted todo" }),
-    });
+    await createTodo("Uncompleted todo");
 
-    const res = await app.request("/api/todos", { method: "DELETE" });
-    expect(res.status).toBe(200);
-
-    const result = await res.json();
-    expect(result).toEqual({ deletedCount: 2 });
-
-    const listRes = await app.request("/api/todos");
-    expect(await listRes.json()).toEqual([]);
+    const res = await deleteAllTodos();
+    await verifyDeleteResult(res, 2);
+    await verifyEmptyTodoList();
   });
 
   it("DELETE /api/todos resets the list for subsequent operations", async () => {
     // Create and delete all todos
-    await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Test todo" }),
-    });
-
-    const deleteRes = await app.request("/api/todos", { method: "DELETE" });
+    await createTodo("Test todo");
+    const deleteRes = await deleteAllTodos();
     expect(deleteRes.status).toBe(200);
 
     // Verify we can create new todos after deletion
-    const createRes = await app.request("/api/todos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "New todo after deletion" }),
-    });
+    const createRes = await createTodo("New todo after deletion");
     expect(createRes.status).toBe(201);
 
     const newTodo = await createRes.json();
