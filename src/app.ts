@@ -44,6 +44,25 @@ app.get("/api/version", (c) => {
   });
 });
 
+// Stats endpoint
+app.get("/api/stats", (c) => {
+  const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
+  const memory = process.memoryUsage();
+
+  return c.json({
+    requests: {
+      total: requestCount
+    },
+    uptime: uptime,
+    memory: {
+      rss: memory.rss,
+      heapTotal: memory.heapTotal,
+      heapUsed: memory.heapUsed,
+      external: memory.external
+    }
+  });
+});
+
 // List all todos
 app.get("/api/todos", (c) => {
   return c.json(getAllTodos());
