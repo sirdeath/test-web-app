@@ -6,16 +6,33 @@ import {
   updateTodo,
   deleteTodo,
 } from "./todos.js";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 const app = new Hono();
 
 // Track server start time for uptime calculation
 const serverStartTime = Date.now();
 
+// Load package.json once at startup
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const packageJson = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8"));
+
 // Health check endpoint
 app.get("/api/health", (c) => {
   const uptime = Math.floor((Date.now() - serverStartTime) / 1000);
   return c.json({ status: "ok", uptime });
+});
+
+// Version endpoint
+app.get("/api/version", (c) => {
+  return c.json({
+    name: packageJson.name,
+    version: packageJson.version,
+    nodeVersion: process.version
+  });
 });
 
 // List all todos
