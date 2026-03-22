@@ -72,8 +72,7 @@ app.get("/api/todos", (c) => {
     if (completedParam !== "true" && completedParam !== "false") {
       return c.json({ error: "completed parameter must be 'true' or 'false'" }, 400);
     }
-    const completed = completedParam === "true";
-    return c.json(getAllTodos(completed));
+    return c.json(getAllTodos(completedParam === "true"));
   }
 
   return c.json(getAllTodos());
